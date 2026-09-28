@@ -1,0 +1,87 @@
+name: Publish container image
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  packages: write
+
+env:
+  APP_PORT: "8080"
+  HEALTH_PATH: "/healthz"
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: docker/setup-buildx-action@v3
+      - name: Log in to GHCR
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+      - name: Build uniquely tagged image
+        id: image
+        shell: bash
+        run: |
+          set -euo pipefail
+          IMAGE_NAME="ghcr.io/${GITHUB_REPOSITORY,,}"
+          TAG="$(date -u +%Y%m%d-%H%M%S)-${GITHUB_SHA::7}-${GITHUB_RUN_NUMBER}-${GITHUB_RUN_ATTEMPT}"
+          IMAGE_REF="${IMAGE_NAME}:${TAG}"
+          docker buildx build --platform linux/amd64 --load -t "${IMAGE_REF}" .
+          echo "ref=${IMAGE_REF}" >> "$GITHUB_OUTPUT"
+      - name: Smoke-test image before publishing
+        shell: bash
+        run: |
+          set -euo pipefail
+          IMAGE_REF="${{ steps.image.outputs.ref }}"
+          docker run -d --name serve-publish-smoke -p "${APP_PORT}:${APP_PORT}" "${IMAGE_REF}"
+          trap 'docker logs serve-publish-smoke || true; docker rm -f serve-publish-smoke >/dev/null 2>&1 || true' EXIT
+          for i in $(seq 1 30); do
+            if curl --fail --silent --show-error "http://127.0.0.1:${APP_PORT}${HEALTH_PATH}" >/dev/null; then
+              echo "Container is healthy"
+              break
+            fi
+            sleep 2
+          done
+          curl --fail --silent --show-error "http://127.0.0.1:${APP_PORT}${HEALTH_PATH}" >/dev/null
+
+          echo "Checking Range + CORS on /data/README.txt"
+          HEADERS="$(curl -s -D - -o /dev/null \
+            -H "Origin: https://example.org" -H "Range: bytes=0-9" \
+            "http://127.0.0.1:${APP_PORT}/README.txt")"
+          echo "$HEADERS"
+          echo "$HEADERS" | grep -qi "^HTTP/.* 206"
+          echo "$HEADERS" | grep -qi "^Content-Range: bytes 0-9/"
+          echo "$HEADERS" | grep -qi "^Access-Control-Allow-Origin: \*"
+          echo "$HEADERS" | grep -qi "^Access-Control-Expose-Headers: .*Content-Range"
+
+          echo "Checking CORS preflight"
+          PREFLIGHT="$(curl -s -D - -o /dev/null -X OPTIONS \
+            -H "Origin: https://example.org" \
+            -H "Access-Control-Request-Method: GET" \
+            -H "Access-Control-Request-Headers: range" \
+            "http://127.0.0.1:${APP_PORT}/README.txt")"
+          echo "$PREFLIGHT"
+          echo "$PREFLIGHT" | grep -qi "^HTTP/.* 204"
+          echo "$PREFLIGHT" | grep -qi "^Access-Control-Allow-Headers: .*Range"
+      - name: Push validated image
+        shell: bash
+        run: docker push "${{ steps.image.outputs.ref }}"
+      - name: Deployment note
+        shell: bash
+        run: |
+          {
+            echo "## SciLifeLab Serve image"
+            echo
+            echo '```text'
+            echo "${{ steps.image.outputs.ref }}"
+            echo '```'
+            echo
+            echo "Make the GHCR package Public, then use this exact unique image tag in Serve. Do not replace it with latest."
+          } >> "$GITHUB_STEP_SUMMARY"
