@@ -108,3 +108,7 @@ intact.
 - `/healthz` returns `200 ok` and is used by the workflow smoke test and the Docker
   `HEALTHCHECK`.
 - Access logging is off. Serve logs are meant for debugging, not user tracking.
+
+## License
+
+[MIT](LICENSE), like the other TissUUmaps projects.
