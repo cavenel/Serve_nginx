@@ -62,6 +62,22 @@ jobs:
           echo "$HEADERS" | grep -qi "^Access-Control-Allow-Origin: \*"
           echo "$HEADERS" | grep -qi "^Access-Control-Expose-Headers: .*Content-Range"
 
+          echo "Checking that a missing file answers 410 with CORS headers"
+          MISSING="$(curl -s -D - -o /dev/null \
+            -H "Origin: https://example.org" \
+            "http://127.0.0.1:${APP_PORT}/does-not-exist.zattrs")"
+          echo "$MISSING"
+          echo "$MISSING" | grep -qi "^HTTP/.* 410"
+          echo "$MISSING" | grep -qi "^Access-Control-Allow-Origin: \*"
+
+          echo "Checking that missing v2 metadata in a v3 store answers 200 with a non-JSON body"
+          ZATTRS="$(curl -s -D - -H "Origin: https://example.org" \
+            "http://127.0.0.1:${APP_PORT}/smoke.zarr/.zattrs")"
+          echo "$ZATTRS"
+          echo "$ZATTRS" | grep -qi "^HTTP/.* 200"
+          echo "$ZATTRS" | grep -qi "^Access-Control-Allow-Origin: \*"
+          echo "$ZATTRS" | grep -q "^not found: Zarr v3 node"
+
           echo "Checking CORS preflight"
           PREFLIGHT="$(curl -s -D - -o /dev/null -X OPTIONS \
             -H "Origin: https://example.org" \

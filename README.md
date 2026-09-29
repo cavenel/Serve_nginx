@@ -20,7 +20,7 @@ non-root user with UID 1000, startup script in `WORKDIR`, port 8080.
 Dockerfile                                 nginx:alpine image, runs as UID 1000
 nginx.conf                                 Range + CORS configuration
 start-script.sh                            startup script required by Serve
-data/                                      sample files for local testing (not in the image)
+data/                                      test fixtures for local runs and CI (not in the image)
 .github/workflows/docker-image-ghcr.yml    builds, tests and pushes the image to GHCR
 ```
 
@@ -102,6 +102,17 @@ intact.
 - Directory listings are on (`autoindex on` in `nginx.conf`). Remove that line to hide
   the file tree; files stay reachable by URL.
 - `gzip` is off on purpose: nginx does not honour Range requests on compressed responses.
+- Missing files answer `410 Gone` instead of `404`. Serve's gateway replaces upstream
+  `403`, `404` and `5xx` responses with its own error page, which carries no CORS headers,
+  so a browser would report a network error rather than a missing file. `410` passes
+  through with the CORS headers.
+- A missing Zarr v2 metadata file (`.zattrs`, `.zarray`, `.zgroup`, `.zmetadata`) in a
+  directory that holds a `zarr.json` answers `200` with a plain-text body. zarrita and
+  other auto-detecting readers probe v2 first and move on to v3 when that file is missing
+  or not valid JSON. Without this, OME-Zarr v0.5 stores do not open from Serve.
+- Missing chunks still answer `410`. Readers treat that as an error, not as fill value,
+  so stores served from here must not have missing chunks. With zarr-python 3, write them
+  with `write_empty_chunks=True`.
 - `/healthz` returns `200 ok` and is used by the workflow smoke test and the Docker
   `HEALTHCHECK`.
 - Access logging is off. Serve logs are meant for debugging, not user tracking.
