@@ -8,9 +8,9 @@ WORKDIR /home/serve
 COPY nginx.conf /etc/nginx/nginx.conf
 COPY --chown=1000:1000 start-script.sh ./start-script.sh
 
-# Files in data/ are baked into the image. Mounting the Serve project volume
-# at /home/serve/data hides them and serves the volume instead.
-COPY --chown=1000:1000 data/ ./data/
+# Serve mounts the project volume at /home/data. That directory must not exist
+# in the image, otherwise the mount does not show up and nginx serves the
+# image contents instead. Nothing is copied there.
 
 RUN chmod +x ./start-script.sh \
  && chown -R 1000:1000 /home/serve

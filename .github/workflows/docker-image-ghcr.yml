@@ -40,7 +40,8 @@ jobs:
         run: |
           set -euo pipefail
           IMAGE_REF="${{ steps.image.outputs.ref }}"
-          docker run -d --name serve-publish-smoke -p "${APP_PORT}:${APP_PORT}" "${IMAGE_REF}"
+          docker run -d --name serve-publish-smoke -p "${APP_PORT}:${APP_PORT}" \
+            -v "${PWD}/data:/home/data:ro" "${IMAGE_REF}"
           trap 'docker logs serve-publish-smoke || true; docker rm -f serve-publish-smoke >/dev/null 2>&1 || true' EXIT
           for i in $(seq 1 30); do
             if curl --fail --silent --show-error "http://127.0.0.1:${APP_PORT}${HEALTH_PATH}" >/dev/null; then
@@ -51,7 +52,7 @@ jobs:
           done
           curl --fail --silent --show-error "http://127.0.0.1:${APP_PORT}${HEALTH_PATH}" >/dev/null
 
-          echo "Checking Range + CORS on /data/README.txt"
+          echo "Checking Range + CORS on /README.txt (from the mounted data/ folder)"
           HEADERS="$(curl -s -D - -o /dev/null \
             -H "Origin: https://example.org" -H "Range: bytes=0-9" \
             "http://127.0.0.1:${APP_PORT}/README.txt")"

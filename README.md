@@ -20,7 +20,7 @@ non-root user with UID 1000, startup script in `WORKDIR`, port 8080.
 Dockerfile                                 nginx:alpine image, runs as UID 1000
 nginx.conf                                 Range + CORS configuration
 start-script.sh                            startup script required by Serve
-data/                                      files baked into the image (optional)
+data/                                      sample files for local testing (not in the image)
 .github/workflows/docker-image-ghcr.yml    builds, tests and pushes the image to GHCR
 ```
 
@@ -56,21 +56,15 @@ unique tag when you update the app. Never use `latest`.
 
 ### 3. Add your data
 
-There are two options.
-
-**Small, fixed datasets (a few hundred MB at most)**: put the files in `data/` before
-pushing. They are copied into the image and served from the root of the app URL.
-
-**Large or changing datasets**: leave `data/` empty and use the project volume.
+Serve mounts the project volume at `/home/data`, and nginx serves that directory. The
+image itself contains no data: if `/home/data` existed in the image, the volume would not
+show up and the app would serve the image contents instead.
 
 1. In the Serve project, go to **Settings → Storage** and add the mount path
-   `/home/serve/data`.
+   `/home/data`.
 2. In the app form, select that mount path in the **Storage** field.
 3. Upload your files to the project storage, for example from a notebook app in the same
    project (see the [Serve file management docs](https://serve.scilifelab.se/docs/files/)).
-
-Mounting the volume at `/home/serve/data` hides anything baked into the image at that
-path.
 
 Storage auto-extends only up to 5 GB. For larger datasets contact the Serve team
 (serve@scilifelab.se). Data hosted on Serve must be public and must not contain sensitive
@@ -80,8 +74,11 @@ information.
 
 ```bash
 docker build --platform linux/amd64 -t serve_nginx:dev .
-docker run --rm -p 8080:8080 -v "$PWD/data:/home/serve/data" serve_nginx:dev
+docker run --rm -p 8080:8080 -v "$PWD/data:/home/data" serve_nginx:dev
 ```
+
+The `data/` folder in this repository is only a local test fixture. On Serve the project
+volume takes its place.
 
 ```bash
 # Expect "206 Partial Content", Content-Range and Access-Control-Allow-Origin

@@ -1,5 +1,2 @@
 .DS_Store
-# Large datasets should go on the Serve project volume, not in git.
-# Uncomment the next line to keep data/ out of the repository entirely.
-# data/*
-# !data/.gitkeep
+# Datasets go on the Serve project volume, not in git. data/ only holds test files.
