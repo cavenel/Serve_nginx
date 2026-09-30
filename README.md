@@ -106,10 +106,12 @@ intact.
   `403`, `404` and `5xx` responses with its own error page, which carries no CORS headers,
   so a browser would report a network error rather than a missing file. `410` passes
   through with the CORS headers.
-- A missing Zarr v2 metadata file (`.zattrs`, `.zarray`, `.zgroup`, `.zmetadata`) in a
-  directory that holds a `zarr.json` answers `200` with a plain-text body. zarrita and
-  other auto-detecting readers probe v2 first and move on to v3 when that file is missing
-  or not valid JSON. Without this, OME-Zarr v0.5 stores do not open from Serve.
+- A missing Zarr v2 metadata file (`.zattrs`, `.zarray`, `.zgroup`, `.zmetadata`) inside a
+  Zarr node, meaning a directory that holds `.zarray`, `.zgroup` or `zarr.json`, answers
+  `200` with what a reader would conclude from a `404`. A missing `.zattrs` in a v2 node
+  returns `{}`, since v2 attributes are optional. Any other missing key returns a
+  plain-text body that is not JSON, which makes zarrita and similar readers move on to
+  the next candidate (v2 array to v2 group, v2 to v3, consolidated to plain metadata).
 - Missing chunks still answer `410`. Readers treat that as an error, not as fill value,
   so stores served from here must not have missing chunks. With zarr-python 3, write them
   with `write_empty_chunks=True`.

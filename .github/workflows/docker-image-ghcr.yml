@@ -76,7 +76,13 @@ jobs:
           echo "$ZATTRS"
           echo "$ZATTRS" | grep -qi "^HTTP/.* 200"
           echo "$ZATTRS" | grep -qi "^Access-Control-Allow-Origin: \*"
-          echo "$ZATTRS" | grep -q "^not found: Zarr v3 node"
+          echo "$ZATTRS" | grep -q "^not found: no such Zarr v2 metadata key"
+
+          echo "Checking missing keys in a v2 array without .zattrs"
+          V2="http://127.0.0.1:${APP_PORT}/smoke-v2.zarr/0"
+          test "$(curl -s -H "Origin: https://example.org" "${V2}/.zattrs")" = "{}"
+          curl -s "${V2}/.zgroup" | grep -q "^not found: no such Zarr v2 metadata key"
+          curl -s -o /dev/null -w "%{http_code}" "${V2}/.zarray" | grep -q "^200$"
 
           echo "Checking CORS preflight"
           PREFLIGHT="$(curl -s -D - -o /dev/null -X OPTIONS \
