@@ -102,10 +102,10 @@ intact.
 - Directory listings are on (`autoindex on` in `nginx.conf`). Remove that line to hide
   the file tree; files stay reachable by URL.
 - `gzip` is off on purpose: nginx does not honour Range requests on compressed responses.
-- Missing files answer `410 Gone` instead of `404`. Serve's gateway replaces upstream
-  `403`, `404` and `5xx` responses with its own error page, which carries no CORS headers,
-  so a browser would report a network error rather than a missing file. `410` passes
-  through with the CORS headers.
+- Missing files answer `404`. On Serve, the gateway replaces upstream `403`, `404` and
+  `5xx` responses with its own error page, which carries no CORS headers, so browser code
+  sees a network error instead of a `404`. The Zarr rule below works around this for
+  metadata files.
 - A missing Zarr metadata file (`.zattrs`, `.zarray`, `.zgroup`, `.zmetadata`, `zarr.json`) inside a
   Zarr node, meaning a directory that holds `.zarray`, `.zgroup` or `zarr.json`, answers
   `200` with what a reader would conclude from a `404`. A missing `.zattrs` in a v2 node
@@ -113,8 +113,9 @@ intact.
   plain-text body that is not JSON, which makes zarrita and similar readers move on to
   the next candidate (v2 array to v2 group, v2 to v3 and back, consolidated to plain
   metadata).
-- Missing chunks still answer `410`. Readers treat that as an error, not as fill value,
-  so stores served from here must not have missing chunks. With zarr-python 3, write them
+- Missing chunks still fail on Serve: their `404` reaches the browser as a network error,
+  which readers cannot treat as fill value. Stores served from here must not have missing
+  chunks. With zarr-python 3, write them
   with `write_empty_chunks=True`.
 - `/healthz` returns `200 ok` and is used by the workflow smoke test and the Docker
   `HEALTHCHECK`.

@@ -62,12 +62,12 @@ jobs:
           echo "$HEADERS" | grep -qi "^Access-Control-Allow-Origin: \*"
           echo "$HEADERS" | grep -qi "^Access-Control-Expose-Headers: .*Content-Range"
 
-          echo "Checking that a missing file answers 410 with CORS headers"
+          echo "Checking that a missing file answers 404 with CORS headers"
           MISSING="$(curl -s -D - -o /dev/null \
             -H "Origin: https://example.org" \
             "http://127.0.0.1:${APP_PORT}/does-not-exist.zattrs")"
           echo "$MISSING"
-          echo "$MISSING" | grep -qi "^HTTP/.* 410"
+          echo "$MISSING" | grep -qi "^HTTP/.* 404"
           echo "$MISSING" | grep -qi "^Access-Control-Allow-Origin: \*"
 
           echo "Checking that missing v2 metadata in a v3 store answers 200 with a non-JSON body"
